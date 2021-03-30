@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -42,7 +44,11 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	cookie := r.Cookies()
+	id := cookie[0].Value
+
+	uid, _ := strconv.Atoi(id)
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
@@ -51,6 +57,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	fmt.Printf("listening")
 	hub := newHub()
 	go hub.run()
 	http.HandleFunc("/", serveTestpage)
@@ -71,6 +78,8 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	id int
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -144,14 +153,14 @@ func newHub() *Hub {
 
 func test_spam(h *Hub) {
 	for {
-		h.broadcast <- []byte(string(time.Now().Local().Format()))
-		time.Sleep(30 * time.Second)
+		h.broadcast <- []byte(time.Now().Format("3:4:5") + " xd lmao")
+		time.Sleep(5 * time.Second)
 	}
 }
 
 func (h *Hub) run() {
+	go test_spam(h)
 	for {
-		go test_spam(h)
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
