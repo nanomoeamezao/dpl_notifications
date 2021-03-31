@@ -34,6 +34,13 @@ func newHub() *Hub {
 	}
 }
 
+func test_spam_direct(h *Hub) {
+	for {
+		h.sendToId <- &DirectMessage{uid: 111, message: "xdlmao"}
+		time.Sleep(5 * time.Second)
+	}
+}
+
 func test_spam(h *Hub) {
 	for {
 		h.broadcast <- []byte(time.Now().Format("3:4:5") + " xd lmao")
@@ -42,7 +49,7 @@ func test_spam(h *Hub) {
 }
 
 func (h *Hub) run() {
-	go test_spam(h)
+	go test_spam_direct(h)
 	for {
 		select {
 		case client := <-h.register:
