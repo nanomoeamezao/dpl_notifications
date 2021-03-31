@@ -4,13 +4,15 @@
         <title>Chat Example</title>
         <script type="text/javascript">
             let conn
+            var id
             window.onload = () => {
                 var log = document.getElementById('log')
-                document.cookie = "UID=111"
+                id = document.getElementById('uid')
             }
             const connectWS = () => {
                 if (!conn) {
                     conn = new WebSocket('ws://' + document.location.host + '/ws')
+                    document.cookie= "UID=" + id.value
                 }
                 conn.onclose = function (evt) {
                     var item = document.createElement('div')
@@ -73,6 +75,7 @@
     <body>
         <div id="log"></div>
         <button id="connect" onclick="connectWS()">connect</button>
+        <textarea id="uid" >111</textarea>
         <button id="disconnect" onclick="disconnectWS()">disconnect</button>
     </body>
 </html>
