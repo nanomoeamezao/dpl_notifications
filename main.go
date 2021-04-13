@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 )
 
@@ -44,11 +46,14 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	cookie := r.Cookies()
-	id := cookie[0].Value
-
+	cookie, err := r.Cookie("UID")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	id := cookie.Value
 	uid, _ := strconv.Atoi(id)
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid}
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid, lastMsgId: "0"}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
@@ -56,9 +61,21 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	go client.writePump()
 }
 
+var ctx = context.Background()
+
 func main() {
 	fmt.Printf("listening")
-	hub := newHub()
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:3333",
+		Password: "",
+		DB:       0,
+	})
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		fmt.Printf("error connecting to redis: %s", err)
+		panic("redis error")
+	}
+
+	hub := newHub(rdb)
 	go hub.run()
 	http.HandleFunc("/", serveTestpage)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

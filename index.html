@@ -10,7 +10,7 @@
                 id = document.getElementById('uid')
             }
             const connectWS = () => {
-                if (!conn) {
+                if (!conn || conn.readyState == 2 || conn.readyState == 3) {
                     conn = new WebSocket('ws://' + document.location.host + '/ws')
                     document.cookie= "UID=" + id.value
                 }

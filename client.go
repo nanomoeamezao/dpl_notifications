@@ -15,6 +15,9 @@ type Client struct {
 	// Buffered channel of outbound messages.
 	send chan []byte
 
+	// last recieved message from redis
+	lastMsgId string
+
 	id int
 }
 
