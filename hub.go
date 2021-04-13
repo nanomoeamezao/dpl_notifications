@@ -6,11 +6,6 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type DirectMessage struct {
-	uid     int
-	message string
-}
-
 type Hub struct {
 	// Registered clients.
 	clients map[*Client]bool
@@ -24,9 +19,6 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
-
-	//send message to a client with id
-	sendToId chan *DirectMessage
 }
 
 func newHub(redis *redis.Client) *Hub {
@@ -35,14 +27,13 @@ func newHub(redis *redis.Client) *Hub {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
-		sendToId:   make(chan *DirectMessage),
 		redis:      redis,
 	}
 }
 
-func test_spam_direct(h *Hub) {
+func test_spam_direct(c *Client) {
 	for {
-		h.sendToId <- &DirectMessage{uid: 111, message: "xdlmao"}
+		c.send <- []byte("xdlmao")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -55,11 +46,11 @@ func test_spam(h *Hub) {
 }
 
 func (h *Hub) run() {
-	go test_spam_direct(h)
 	for {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+			go test_spam_direct(client)
 			go h.handleRedisForClient(client)
 
 		case client := <-h.unregister:
@@ -74,17 +65,6 @@ func (h *Hub) run() {
 				default:
 					close(client.send)
 					delete(h.clients, client)
-				}
-			}
-		case directMessage := <-h.sendToId:
-			for client := range h.clients {
-				if client.id == directMessage.uid {
-					select {
-					case client.send <- []byte(directMessage.message):
-					default:
-						close(client.send)
-						delete(h.clients, client)
-					}
 				}
 			}
 		}
@@ -108,7 +88,7 @@ func (h *Hub) handleRedisForClient(client *Client) {
 				if err != redis.Nil {
 					for _, stream := range val[0].Messages {
 						client.lastMsgId = stream.ID
-						h.sendToId <- &DirectMessage{uid: 111, message: stream.Values["msg"].(string)}
+						client.send <- []byte(stream.Values["msg"].(string))
 					}
 				}
 			}()
