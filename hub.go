@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -50,13 +51,17 @@ func (h *Hub) run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
-			go test_spam_direct(client)
+			// go test_spam_direct(client)
+			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client)
 
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
+				log.Printf("unregistering %d", client.id)
 				delete(h.clients, client)
+				client.control <- true
 				close(client.send)
+				close(client.control)
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {
@@ -79,11 +84,13 @@ func (h *Hub) handleRedisForClient(client *Client) {
 		select {
 		case <-ticker.C:
 			func() {
+				log.Printf("reading redis, last msg: %s", client.lastMsgId)
 				val, err := h.redis.XRead(ctx, &redis.XReadArgs{
-					Streams: []string{"111", client.lastMsgId},
+					Streams: []string{"111", "1618344951278-0"},
+					Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 				}).Result()
 				if err != nil {
-					panic(err)
+					log.Println(err)
 				}
 				if err != redis.Nil {
 					for _, stream := range val[0].Messages {
@@ -92,6 +99,8 @@ func (h *Hub) handleRedisForClient(client *Client) {
 					}
 				}
 			}()
+		case <-client.control:
+			return
 		}
 	}
 }

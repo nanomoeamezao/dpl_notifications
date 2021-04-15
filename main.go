@@ -42,6 +42,7 @@ var upgrader = websocket.Upgrader{
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
+	log.Printf("new connect")
 	if err != nil {
 		log.Println(err)
 		return
@@ -53,12 +54,13 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 	id := cookie.Value
 	uid, _ := strconv.Atoi(id)
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid, lastMsgId: "0"}
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid, lastMsgId: "0", control: make(chan bool)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writePump()
+	go client.maintain()
 }
 
 var ctx = context.Background()
@@ -71,7 +73,7 @@ func main() {
 		DB:       0,
 	})
 	if _, err := rdb.Ping(ctx).Result(); err != nil {
-		fmt.Printf("error connecting to redis: %s", err)
+		log.Printf("error connecting to redis: %s", err)
 		panic("redis error")
 	}
 
