@@ -83,24 +83,26 @@ func (h *Hub) handleRedisForClient(client *Client) {
 	for {
 		select {
 		case <-ticker.C:
-			func() {
-				log.Printf("reading redis, last msg: %s", client.lastMsgId)
-				val, err := h.redis.XRead(ctx, &redis.XReadArgs{
-					Streams: []string{"111", "1618344951278-0"},
-					Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
-				}).Result()
-				if err != nil {
-					log.Println(err)
-				}
-				if err != redis.Nil {
-					for _, stream := range val[0].Messages {
-						client.lastMsgId = stream.ID
-						client.send <- []byte(stream.Values["msg"].(string))
-					}
-				}
-			}()
+			h.readRedisMessages(client)
 		case <-client.control:
 			return
+		}
+	}
+}
+
+func (h *Hub) readRedisMessages(client *Client) {
+	log.Printf("reading redis, last msg: %s", client.lastMsgId)
+	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
+		Streams: []string{"111", "1618344951278-0"},
+		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
+	}).Result()
+	if err != nil {
+		log.Println(err)
+	}
+	if err != redis.Nil {
+		for _, stream := range val[0].Messages {
+			client.lastMsgId = stream.ID
+			client.send <- []byte(stream.Values["msg"].(string))
 		}
 	}
 }
