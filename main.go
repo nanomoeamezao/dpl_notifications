@@ -61,11 +61,13 @@ func requestApi(hub *Hub, w http.ResponseWriter, r *http.Request, rdb *redis.Cli
 	msg, err := decodeJSONMessage(encodedMessage)
 	if err != nil {
 		log.Println("failed to decode message: ", msg)
+		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed, message not decoded", id:"%d"}`, msg.Id)))
 		return
 	}
 	errMessage := checkDecodedMessage(msg)
 	if errMessage != nil {
 		log.Println("decoded message does not contain needed info", errMessage)
+		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed, message contained incorrect data", id:"%d"}`, msg.Id)))
 		return
 	}
 	rdb.XAdd(ctx, &redis.XAddArgs{
@@ -73,7 +75,7 @@ func requestApi(hub *Hub, w http.ResponseWriter, r *http.Request, rdb *redis.Cli
 		ID:     "*",
 		Values: fmt.Sprintf("msg %s", msg.Params.Msg),
 	})
-	w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":0, id:"%d"}`, msg.Id)))
+	w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":success, id:"%d"}`, msg.Id)))
 }
 
 func decodeJSONMessage(encodedMessage io.ReadCloser) (JSONMessage, error) {
