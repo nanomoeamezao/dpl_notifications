@@ -18,7 +18,7 @@ RUN go build -o main .
 WORKDIR /dist
 
 RUN cp /build/main .
-
+RUN cp /build/index.html .
 EXPOSE 3000
 
 CMD ["/dist/main"]
