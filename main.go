@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -40,6 +44,57 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+type JSONParams struct {
+	Msg string
+	Id  int64
+}
+
+type JSONMessage struct {
+	Jsonrpc string
+	Method  string
+	Params  JSONParams
+	Id      int64
+}
+
+func requestApi(hub *Hub, w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
+	encodedMessage := r.Body
+	msg, err := decodeJSONMessage(encodedMessage)
+	if err != nil {
+		log.Println("failed to decode message: ", msg)
+		return
+	}
+	errMessage := checkDecodedMessage(msg)
+	if errMessage != nil {
+		log.Println("decoded message does not contain needed info", errMessage)
+		return
+	}
+	rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: strconv.FormatInt(msg.Params.Id, 10),
+		ID:     "*",
+		Values: fmt.Sprintf("msg %s", msg.Params.Msg),
+	})
+	w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":0, id:"%d"}`, msg.Id)))
+}
+
+func decodeJSONMessage(encodedMessage io.ReadCloser) (JSONMessage, error) {
+	var message JSONMessage
+	encodedNonstream, err := ioutil.ReadAll(encodedMessage)
+	if err == nil {
+		json.Unmarshal(encodedNonstream, &message)
+	} else {
+		log.Println(err)
+	}
+	return message, err
+}
+
+func checkDecodedMessage(message JSONMessage) error {
+	if message.Params.Id == 0 || message.Params.Msg == "" {
+		return errors.New("message integrity check failed")
+	} else {
+		return nil
+	}
+}
+
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	log.Printf("new connect")
@@ -57,8 +112,6 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid, lastMsgId: "0", control: make(chan bool)}
 	client.hub.register <- client
 
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
 	go client.writePump()
 	go client.maintain()
 }
@@ -82,6 +135,9 @@ func main() {
 	http.HandleFunc("/", serveTestpage)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
+	})
+	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
+		requestApi(hub, w, r, rdb)
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
