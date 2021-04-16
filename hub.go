@@ -93,7 +93,7 @@ func (h *Hub) handleRedisForClient(client *Client) {
 func (h *Hub) readRedisMessages(client *Client) {
 	log.Printf("reading redis, last msg: %s", client.lastMsgId)
 	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
-		Streams: []string{"111", "1618344951278-0"},
+		Streams: []string{"111", client.lastMsgId},
 		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 	}).Result()
 	if err != nil {

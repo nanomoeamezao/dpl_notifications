@@ -70,11 +70,11 @@ func requestApi(hub *Hub, w http.ResponseWriter, r *http.Request, rdb *redis.Cli
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed", "error":{"code":-32602, "message":"message contained incorrect data"}, id:"%d"}`, msg.Id)))
 		return
 	}
-	rdb.XAdd(ctx, &redis.XAddArgs{
+	redisResult := rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: strconv.FormatInt(msg.Params.Id, 10),
-		ID:     "*",
-		Values: fmt.Sprintf("msg %s", msg.Params.Msg),
-	})
+		Values: []interface{}{"msg", msg.Params.Msg},
+	}).Err()
+	log.Printf("%s", redisResult)
 	w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":success, id:"%d"}`, msg.Id)))
 }
 
@@ -123,7 +123,7 @@ var ctx = context.Background()
 func main() {
 	fmt.Printf("listening")
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:3333",
+		Addr:     "redis:6379",
 		Password: "",
 		DB:       0,
 	})
