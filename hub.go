@@ -35,8 +35,13 @@ func newHub(redis *redis.Client) *Hub {
 
 func test_spam_direct(c *Client) {
 	for {
-		c.send <- []byte("xdlmao")
-		time.Sleep(5 * time.Second)
+		select {
+		case <-c.control:
+			return
+		default:
+			c.send <- []byte("xdlmao")
+			time.Sleep(5 * time.Second)
+		}
 	}
 }
 
@@ -52,7 +57,7 @@ func (h *Hub) run() {
 		select {
 		case client := <-h.register:
 			h.clients[client.id] = client
-			go test_spam_direct(client)
+			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client)
 
