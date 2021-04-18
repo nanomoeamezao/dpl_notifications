@@ -56,7 +56,7 @@ type JSONMessage struct {
 	Id      int64
 }
 
-func requestApi(hub *Hub, w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
+func handleAPIRequest(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
 	encodedMessage := r.Body
 	msg, err := decodeJSONMessage(encodedMessage)
 	if err != nil {
@@ -139,7 +139,7 @@ func main() {
 		serveWs(hub, w, r)
 	})
 	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
-		requestApi(hub, w, r, rdb)
+		handleAPIRequest(w, r, rdb)
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
