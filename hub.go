@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -9,7 +10,7 @@ import (
 
 type Hub struct {
 	// Registered clients.
-	clients map[*Client]bool
+	clients map[int]*Client
 
 	redis *redis.Client
 	// Inbound messages from the clients.
@@ -27,7 +28,7 @@ func newHub(redis *redis.Client) *Hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		clients:    make(map[int]*Client),
 		redis:      redis,
 	}
 }
@@ -50,26 +51,26 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
-			// go test_spam_direct(client)
+			h.clients[client.id] = client
+			go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client)
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
+			if _, ok := h.clients[client.id]; ok {
 				log.Printf("unregistering %d", client.id)
-				delete(h.clients, client)
+				delete(h.clients, client.id)
 				client.control <- true
 				close(client.send)
 				close(client.control)
 			}
 		case message := <-h.broadcast:
-			for client := range h.clients {
+			for _, client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
 					close(client.send)
-					delete(h.clients, client)
+					delete(h.clients, client.id)
 				}
 			}
 		}
@@ -93,7 +94,7 @@ func (h *Hub) handleRedisForClient(client *Client) {
 func (h *Hub) readRedisMessages(client *Client) {
 	log.Printf("reading redis, last msg: %s", client.lastMsgId)
 	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
-		Streams: []string{"111", client.lastMsgId},
+		Streams: []string{strconv.Itoa(client.id), client.lastMsgId},
 		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 	}).Result()
 	if err != nil {
