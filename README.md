@@ -20,6 +20,7 @@
 Пример запроса: 
 
 ``` 
-{"jsonrpc": "2.0", "method": "subtract", "params": {"msg": "test", "id": 111}, "id": 1}
+{"jsonrpc": "2.0", "method": "send", "params": {"msg": "test", "id": 111}, "id": 1}
 ```
 
+На данный момент важный объект только params. Он принимает "msg" - текст сообщения и "id" - int ид клиента.
