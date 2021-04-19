@@ -39,7 +39,23 @@ func TestUpdateClientsLastMessageRedis_positive(t *testing.T) {
 	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "14888888", control: make(chan bool)}
 	cmd, err := updateClientsLastMessageRedis(client, rdb, ctx)
 	fmt.Print("test redis ", cmd, "\n")
-	if err != nil && cmd != "OK" {
+	if err != nil || cmd != "OK" {
 		t.Fatal(err.Error(), cmd)
+	}
+}
+
+func TestReadClientsLastMessageRedis_positive(t *testing.T) {
+	var ctx = context.Background()
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "redis:6379",
+		Password: "",
+		DB:       0,
+	})
+	hub := newHub(rdb)
+	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "1488", control: make(chan bool)}
+	updateClientsLastMessageRedis(client, rdb, ctx)
+	res, err := readClientsLastMessageRedis(client, rdb, ctx)
+	if err != nil || res != "1488" {
+		t.Error(err.Error())
 	}
 }

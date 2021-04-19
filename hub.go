@@ -121,3 +121,8 @@ func updateClientsLastMessageRedis(client *Client, redis *redis.Client, ctx cont
 	cmd, err := redis.Set(ctx, fmt.Sprintf("%dlast", client.id), lastMessageId, 0).Result()
 	return cmd, err
 }
+
+func readClientsLastMessageRedis(client *Client, redis *redis.Client, ctx context.Context) (string, error) {
+	res, err := redis.Get(ctx, fmt.Sprint(client.id, "last")).Result()
+	return res, err
+}
