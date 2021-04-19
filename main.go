@@ -133,7 +133,7 @@ func main() {
 	}
 
 	hub := newHub(rdb)
-	go hub.run()
+	go hub.run(ctx)
 	http.HandleFunc("/", serveTestpage)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)

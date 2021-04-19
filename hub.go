@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -52,14 +54,14 @@ func test_spam(h *Hub) {
 	}
 }
 
-func (h *Hub) run() {
+func (h *Hub) run(ctx context.Context) {
 	for {
 		select {
 		case client := <-h.register:
 			h.clients[client.id] = client
 			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
-			go h.handleRedisForClient(client)
+			go h.handleRedisForClient(client, ctx)
 
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.id]; ok {
@@ -81,7 +83,7 @@ func (h *Hub) run() {
 		}
 	}
 }
-func (h *Hub) handleRedisForClient(client *Client) {
+func (h *Hub) handleRedisForClient(client *Client, ctx context.Context) {
 	ticker := time.NewTicker(time.Second * 5)
 	defer func() {
 		ticker.Stop()
@@ -90,6 +92,7 @@ func (h *Hub) handleRedisForClient(client *Client) {
 		select {
 		case <-ticker.C:
 			h.readRedisMessages(client)
+			updateClientsLastMessageRedis(client, h.redis, ctx)
 		case <-client.control:
 			return
 		}
@@ -111,4 +114,10 @@ func (h *Hub) readRedisMessages(client *Client) {
 			client.send <- []byte(stream.Values["msg"].(string))
 		}
 	}
+}
+
+func updateClientsLastMessageRedis(client *Client, redis *redis.Client, ctx context.Context) (string, error) {
+	lastMessageId := client.lastMsgId
+	cmd, err := redis.Set(ctx, fmt.Sprintf("%dlast", client.id), lastMessageId, 0).Result()
+	return cmd, err
 }
