@@ -60,6 +60,10 @@ func (h *Hub) run(ctx context.Context) {
 		case client := <-h.register:
 			h.clients[client.id] = client
 			// go test_spam_direct(client)
+			lastMessage, err := readClientsLastMessageRedis(client, h.redis, ctx)
+			if err == nil {
+				client.lastMsgId = lastMessage
+			}
 			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client, ctx)
 
