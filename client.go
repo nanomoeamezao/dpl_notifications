@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -14,7 +15,7 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan *Message
 
 	// last recieved message from redis
 	lastMsgId string
@@ -22,6 +23,11 @@ type Client struct {
 	id int
 
 	control chan bool
+}
+
+type Message struct {
+	Id      string
+	Message string
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -53,13 +59,24 @@ func (c *Client) writePump() {
 				c.conn.Close()
 				return
 			}
-			w.Write(message)
+
+			// w.Write(message)
 
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
+			messageArray := []*Message{}
+			messageArray = append(messageArray, message)
 			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
+				messageArray = append(messageArray, <-c.send)
+				// w.Write(newline)
+				// w.Write(<-c.send)
+
+			}
+			encodedMessages, err := serializeMessages(messageArray)
+			if err != nil {
+				log.Print(err.Error())
+			} else {
+				w.Write([]byte(encodedMessages))
 			}
 
 			if err := w.Close(); err != nil {
@@ -76,6 +93,11 @@ func (c *Client) writePump() {
 			}
 		}
 	}
+}
+
+func serializeMessages(messages []*Message) (string, error) {
+	encodedMessages, err := json.Marshal(messages)
+	return string(encodedMessages), err
 }
 
 func (c *Client) maintain() {

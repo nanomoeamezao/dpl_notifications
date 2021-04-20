@@ -36,7 +36,7 @@ func TestUpdateClientsLastMessageRedis_positive(t *testing.T) {
 		DB:       0,
 	})
 	hub := newHub(rdb)
-	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "14888888", control: make(chan bool)}
+	client := &Client{hub: hub, conn: nil, send: make(chan *Message, 256), id: 111, lastMsgId: "14888888", control: make(chan bool)}
 	cmd, err := updateClientsLastMessageRedis(client, rdb, ctx)
 	if err != nil || cmd != "OK" {
 		t.Fatal(err.Error(), cmd)
@@ -51,10 +51,33 @@ func TestReadClientsLastMessageRedis_positive(t *testing.T) {
 		DB:       0,
 	})
 	hub := newHub(rdb)
-	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "8888", control: make(chan bool)}
+	client := &Client{hub: hub, conn: nil, send: make(chan *Message, 256), id: 111, lastMsgId: "8888", control: make(chan bool)}
 	updateClientsLastMessageRedis(client, rdb, ctx)
 	res, err := readClientsLastMessageRedis(client, rdb, ctx)
 	if err != nil || res != "8888" {
 		t.Error(err.Error())
+	}
+}
+
+func TestSerializeMessages_positive(t *testing.T) {
+	messageArray := []*Message{}
+	messageArray = append(messageArray, &Message{Id: "11", Message: "kek"})
+	messageArray = append(messageArray, &Message{Id: "12", Message: "kek"})
+	messageArray = append(messageArray, &Message{Id: "13", Message: "kek"})
+	encoded_single, err_single := serializeMessages(messageArray[:1])
+	want_single := "[{\"Id\":\"11\",\"Message\":\"kek\"}]"
+
+	encoded_multiple, err_multiple := serializeMessages(messageArray)
+	want_multiple := "[{\"Id\":\"11\",\"Message\":\"kek\"},{\"Id\":\"12\",\"Message\":\"kek\"},{\"Id\":\"13\",\"Message\":\"kek\"}]"
+	if err_single != nil {
+		t.Error(err_single.Error(), " single error")
+	} else if encoded_single != want_single {
+		t.Error("encoded != want: ", encoded_single)
+	}
+
+	if err_multiple != nil {
+		t.Error(err_multiple.Error(), " multiple error")
+	} else if encoded_multiple != want_multiple {
+		t.Error("encoded != want: multiple ", encoded_multiple, " != ", want_multiple)
 	}
 }

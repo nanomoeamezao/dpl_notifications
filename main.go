@@ -111,7 +111,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 	id := cookie.Value
 	uid, _ := strconv.Atoi(id)
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), id: uid, lastMsgId: "0", control: make(chan bool)}
+	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: "0", control: make(chan bool)}
 	client.hub.register <- client
 
 	go client.writePump()

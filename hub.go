@@ -42,16 +42,9 @@ func test_spam_direct(c *Client) {
 			log.Print("stopped spam")
 			return
 		default:
-			c.send <- []byte(time.Now().Format("3:4:5") + " test spam")
+			c.send <- &Message{Id: "-1", Message: "spam"}
 			time.Sleep(5 * time.Second)
 		}
-	}
-}
-
-func test_spam(h *Hub) {
-	for {
-		h.broadcast <- []byte(time.Now().Format("3:4:5") + " xd lmao")
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -76,15 +69,15 @@ func (h *Hub) run(ctx context.Context) {
 				close(client.send)
 				close(client.control)
 			}
-		case message := <-h.broadcast:
-			for _, client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client.id)
-				}
-			}
+			// case message := <-h.broadcast:
+			// 	for _, client := range h.clients {
+			// 		select {
+			// 		case client.send <- message:
+			// 		default:
+			// 			close(client.send)
+			// 			delete(h.clients, client.id)
+			// 		}
+			// 	}
 		}
 	}
 }
@@ -96,7 +89,7 @@ func (h *Hub) handleRedisForClient(client *Client, ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			h.readRedisMessages(client)
+			h.readRedisMessages(client, client.lastMsgId)
 			updateClientsLastMessageRedis(client, h.redis, ctx)
 		case <-client.control:
 			return
@@ -104,10 +97,10 @@ func (h *Hub) handleRedisForClient(client *Client, ctx context.Context) {
 	}
 }
 
-func (h *Hub) readRedisMessages(client *Client) {
-	log.Printf("reading redis, last msg: %s", client.lastMsgId)
+func (h *Hub) readRedisMessages(client *Client, startID string) {
+	log.Printf("reading redis, last msg: %s", startID)
 	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
-		Streams: []string{strconv.Itoa(client.id), client.lastMsgId},
+		Streams: []string{strconv.Itoa(client.id), startID},
 		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 	}).Result()
 	if err != nil {
@@ -116,7 +109,7 @@ func (h *Hub) readRedisMessages(client *Client) {
 	if err != redis.Nil {
 		for _, stream := range val[0].Messages {
 			client.lastMsgId = stream.ID
-			client.send <- []byte(stream.Values["msg"].(string))
+			client.send <- &Message{Id: stream.ID, Message: stream.Values["msg"].(string)}
 		}
 	}
 }
