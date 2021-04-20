@@ -60,17 +60,12 @@ func (c *Client) writePump() {
 				return
 			}
 
-			// w.Write(message)
-
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			messageArray := []*Message{}
 			messageArray = append(messageArray, message)
 			for i := 0; i < n; i++ {
 				messageArray = append(messageArray, <-c.send)
-				// w.Write(newline)
-				// w.Write(<-c.send)
-
 			}
 			encodedMessages, err := serializeMessages(messageArray)
 			if err != nil {
