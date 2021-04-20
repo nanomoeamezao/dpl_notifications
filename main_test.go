@@ -38,7 +38,6 @@ func TestUpdateClientsLastMessageRedis_positive(t *testing.T) {
 	hub := newHub(rdb)
 	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "14888888", control: make(chan bool)}
 	cmd, err := updateClientsLastMessageRedis(client, rdb, ctx)
-	fmt.Print("test redis ", cmd, "\n")
 	if err != nil || cmd != "OK" {
 		t.Fatal(err.Error(), cmd)
 	}
