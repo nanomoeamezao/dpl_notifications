@@ -1,0 +1,39 @@
+{
+	"info": {
+		"_postman_id": "767c57c0-b9b7-4774-85f8-ba1e70b459f7",
+		"name": "notification_service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "send notification",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"jsonrpc\": \"2.0\", \"method\": \"send\", \"params\": {\"msg\": \"poopoo2\", \"id\": 111}, \"id\": 1}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/send",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"send"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
