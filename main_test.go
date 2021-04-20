@@ -52,10 +52,10 @@ func TestReadClientsLastMessageRedis_positive(t *testing.T) {
 		DB:       0,
 	})
 	hub := newHub(rdb)
-	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "1488", control: make(chan bool)}
+	client := &Client{hub: hub, conn: nil, send: make(chan []byte, 256), id: 111, lastMsgId: "8888", control: make(chan bool)}
 	updateClientsLastMessageRedis(client, rdb, ctx)
 	res, err := readClientsLastMessageRedis(client, rdb, ctx)
-	if err != nil || res != "1488" {
+	if err != nil || res != "8888" {
 		t.Error(err.Error())
 	}
 }

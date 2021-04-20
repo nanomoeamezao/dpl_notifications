@@ -39,9 +39,10 @@ func test_spam_direct(c *Client) {
 	for {
 		select {
 		case <-c.control:
+			log.Print("stopped spam")
 			return
 		default:
-			c.send <- []byte("xdlmao")
+			c.send <- []byte(time.Now().Format("3:4:5") + " test spam")
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -59,7 +60,7 @@ func (h *Hub) run(ctx context.Context) {
 		select {
 		case client := <-h.register:
 			h.clients[client.id] = client
-			// go test_spam_direct(client)
+			go test_spam_direct(client)
 			lastMessage, err := readClientsLastMessageRedis(client, h.redis, ctx)
 			if err == nil {
 				client.lastMsgId = lastMessage
