@@ -117,7 +117,6 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	uid, _ := strconv.Atoi(id)
 	lastMsgId := lastMsgCookie.Value
 	log.Printf("new connect")
-	log.Print(lastMsgId)
 	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool)}
 	client.hub.register <- client
 
