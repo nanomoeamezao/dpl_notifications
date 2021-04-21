@@ -12,8 +12,9 @@
             const connectWS = () => {
                 console.log(conn)
                 if (!conn || conn.readyState == 3) {
-                    conn = new WebSocket('ws://' + document.location.host + '/ws')
                     document.cookie= "UID=" + id.value
+                    document.cookie="lastID=" + getLastMessageID(log)
+                    conn = new WebSocket('ws://' + document.location.host + '/ws')
                 }
                 conn.onclose = function (evt) {
                     var item = document.createElement('div')
@@ -36,6 +37,17 @@
             }
             const disconnectWS = () => {
                 conn.close()
+            }
+            const getLastMessageID = (messageNode)=>{
+                let messageArray = Array.prototype.slice.call(  messageNode.getElementsByTagName('*') )
+                let lastID = 0
+                for (const message in messageArray) {
+                    if (messageArray[message].hasAttribute('id')) {
+                        if (messageArray[message].id != "-1")
+                            lastID = messageArray[message].id
+                    }
+                }
+                return lastID
             }
         </script>
         <style type="text/css">

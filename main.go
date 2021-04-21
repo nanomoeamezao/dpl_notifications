@@ -99,19 +99,26 @@ func checkDecodedMessage(message JSONMessage) error {
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-	log.Printf("new connect")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	cookie, err := r.Cookie("UID")
+	UIDcookie, err := r.Cookie("UID")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	id := cookie.Value
+	lastMsgCookie, err := r.Cookie("lastID")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	id := UIDcookie.Value
 	uid, _ := strconv.Atoi(id)
-	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: "0", control: make(chan bool)}
+	lastMsgId := lastMsgCookie.Value
+	log.Printf("new connect")
+	log.Print(lastMsgId)
+	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool)}
 	client.hub.register <- client
 
 	go client.writePump()
