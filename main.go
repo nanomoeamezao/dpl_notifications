@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -128,10 +129,13 @@ var ctx = context.Background()
 
 func main() {
 	fmt.Printf("listening")
+	redisUrl := os.Getenv("REDIS_URL")
+	if redisUrl == "" {
+		redisUrl = "redis:6379"
+	}
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
-		Password: "",
-		DB:       0,
+		Addr: redisUrl,
+		DB:   0,
 	})
 	if _, err := rdb.Ping(ctx).Result(); err != nil {
 		log.Printf("error connecting to redis: %s", err)
