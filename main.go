@@ -130,13 +130,17 @@ var ctx = context.Background()
 func main() {
 	fmt.Printf("listening")
 	redisUrl := os.Getenv("REDIS_URL")
+	var redisOptions = &redis.Options{}
 	if redisUrl == "" {
 		redisUrl = "redis:6379"
+		redisOptions = &redis.Options{
+			Addr: redisUrl,
+			DB:   0,
+		}
+	} else {
+		redisOptions, _ = redis.ParseURL(redisUrl)
 	}
-	rdb := redis.NewClient(&redis.Options{
-		Addr: redisUrl,
-		DB:   0,
-	})
+	rdb := redis.NewClient(redisOptions)
 	if _, err := rdb.Ping(ctx).Result(); err != nil {
 		log.Printf("error connecting to redis: %s", err)
 		panic("redis error")
