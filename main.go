@@ -130,6 +130,7 @@ var ctx = context.Background()
 func main() {
 	fmt.Printf("listening")
 	redisUrl := os.Getenv("REDIS_URL")
+	fmt.Printf(redisUrl)
 	var redisOptions = &redis.Options{}
 	if redisUrl == "" {
 		redisUrl = "redis:6379"
