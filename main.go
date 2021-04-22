@@ -156,7 +156,11 @@ func main() {
 	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
 		handleAPIRequest(w, r, rdb)
 	})
-	err := http.ListenAndServe(":8080", nil)
+	port := os.Getenv("notif_port")
+	if port == "" {
+		port = ":8080"
+	}
+	err := http.ListenAndServe(port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
