@@ -20,7 +20,11 @@ type Client struct {
 	// last recieved message from redis
 	lastMsgId string
 
+	//client id in conflab
 	id int
+
+	//google uuid
+	uuid string
 
 	control chan bool
 }

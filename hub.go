@@ -12,7 +12,7 @@ import (
 
 type Hub struct {
 	// Registered clients.
-	clients map[int]*Client
+	clients map[string]*Client
 
 	redis *redis.Client
 	// Inbound messages from the clients.
@@ -30,7 +30,7 @@ func newHub(redis *redis.Client) *Hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[int]*Client),
+		clients:    make(map[string]*Client),
 		redis:      redis,
 	}
 }
@@ -52,15 +52,15 @@ func (h *Hub) run(ctx context.Context) {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client.id] = client
+			h.clients[client.uuid] = client
 			go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client, ctx)
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client.id]; ok {
+			if _, ok := h.clients[client.uuid]; ok {
 				log.Printf("unregistering %d", client.id)
-				delete(h.clients, client.id)
+				delete(h.clients, client.uuid)
 				client.control <- true
 				close(client.send)
 				close(client.control)
@@ -99,14 +99,15 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 		Streams: []string{strconv.Itoa(client.id), startID},
 		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 	}).Result()
-	if err != nil {
-		log.Println(err)
-	}
-	if err != redis.Nil {
+	if err != redis.Nil && err != nil {
 		for _, stream := range val[0].Messages {
 			client.lastMsgId = stream.ID
 			client.send <- &Message{Id: stream.ID, Message: stream.Values["msg"].(string)}
 		}
+	} else if err == redis.Nil {
+		log.Print("no new msgs for ", client.id)
+	} else {
+		log.Print("error for ", client.id, " : ", err)
 	}
 }
 

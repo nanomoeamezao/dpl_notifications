@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	guuid "github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -116,9 +117,10 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 	id := UIDcookie.Value
 	uid, _ := strconv.Atoi(id)
+	uuid := guuid.NewString()
 	lastMsgId := lastMsgCookie.Value
 	log.Printf("new connect")
-	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool)}
+	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
 	client.hub.register <- client
 
 	go client.writePump()
@@ -149,6 +151,7 @@ func main() {
 
 	hub := newHub(rdb)
 	go hub.run(ctx)
+
 	http.HandleFunc("/", serveTestpage)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
