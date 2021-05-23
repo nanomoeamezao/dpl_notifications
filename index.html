@@ -1,7 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>Chat Example</title>
+        <title>Notification testing</title>
+        <!-- The core Firebase JS SDK is always required and must be listed first -->
+        <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-app.js"></script>
+
+        <!-- TODO: Add SDKs for Firebase products that you want to use
+     https://firebase.google.com/docs/web/setup#available-libraries -->
+        <script src="https://www.gstatic.com/firebasejs/8.6.2/firebase-analytics.js"></script>
+
+        <script>
+            // Your web app's Firebase configuration
+            // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+            var firebaseConfig = {
+                apiKey: 'AIzaSyC0a8lgwVvetlH-o171X5taO7OzDtYL48M',
+                authDomain: 'notification-dpl.firebaseapp.com',
+                projectId: 'notification-dpl',
+                storageBucket: 'notification-dpl.appspot.com',
+                messagingSenderId: '9204240224',
+                appId: '1:9204240224:web:f55113f81c66164ec91805',
+                measurementId: 'G-DN4GG6GWS7',
+            }
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig)
+            firebase.analytics()
+        </script>
         <script type="text/javascript">
             let conn
             var id
@@ -12,9 +35,11 @@
             const connectWS = () => {
                 console.log(conn)
                 if (!conn || conn.readyState == 3) {
-                    document.cookie= "UID=" + id.value
-                    document.cookie="lastID=" + getLastMessageID(log)
-                    conn = new WebSocket('ws://' + document.location.host + '/ws')
+                    document.cookie = 'UID=' + id.value
+                    document.cookie = 'lastID=' + getLastMessageID(log)
+                    conn = new WebSocket(
+                        'ws://' + document.location.host + '/ws'
+                    )
                 }
                 conn.onclose = function (evt) {
                     var item = document.createElement('div')
@@ -38,12 +63,14 @@
             const disconnectWS = () => {
                 conn.close()
             }
-            const getLastMessageID = (messageNode)=>{
-                let messageArray = Array.prototype.slice.call(  messageNode.getElementsByTagName('*') )
+            const getLastMessageID = (messageNode) => {
+                let messageArray = Array.prototype.slice.call(
+                    messageNode.getElementsByTagName('*')
+                )
                 let lastID = 0
                 for (const message in messageArray) {
                     if (messageArray[message].hasAttribute('id')) {
-                        if (messageArray[message].id != "-1")
+                        if (messageArray[message].id != '-1')
                             lastID = messageArray[message].id
                     }
                 }
@@ -90,7 +117,7 @@
     <body>
         <div id="log"></div>
         <button id="connect" onclick="connectWS()">connect</button>
-        <textarea id="uid" >111</textarea>
+        <textarea id="uid">111</textarea>
         <button id="disconnect" onclick="disconnectWS()">disconnect</button>
     </body>
 </html>
