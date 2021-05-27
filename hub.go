@@ -65,15 +65,6 @@ func (h *Hub) run(ctx context.Context) {
 				close(client.send)
 				close(client.control)
 			}
-			// case message := <-h.broadcast:
-			// 	for _, client := range h.clients {
-			// 		select {
-			// 		case client.send <- message:
-			// 		default:
-			// 			close(client.send)
-			// 			delete(h.clients, client.id)
-			// 		}
-			// 	}
 		}
 	}
 }
@@ -86,7 +77,6 @@ func (h *Hub) handleRedisForClient(client *Client, ctx context.Context) {
 		select {
 		case <-ticker.C:
 			h.readRedisMessages(client, client.lastMsgId)
-			// updateClientsLastMessageRedis(client, h.redis, ctx)
 		case <-client.control:
 			return
 		}
