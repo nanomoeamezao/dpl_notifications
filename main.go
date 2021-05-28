@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/gops/agent"
 	guuid "github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -130,6 +131,11 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 var ctx = context.Background()
 
 func main() {
+	if err := agent.Listen(agent.Options{
+		ShutdownCleanup: true, // automatically closes on os.Interrupt
+	}); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("listening")
 	redisUrl := os.Getenv("REDIS_URL")
 	fmt.Printf(redisUrl)
