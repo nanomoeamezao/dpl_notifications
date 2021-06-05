@@ -19,10 +19,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func serveTestpage(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "index.html")
-}
-
 const (
 	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
@@ -157,8 +153,8 @@ func main() {
 
 	hub := newHub(rdb)
 	go hub.run(ctx)
-
-	http.HandleFunc("/", serveTestpage)
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fs)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
