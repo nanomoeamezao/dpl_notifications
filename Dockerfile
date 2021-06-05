@@ -18,7 +18,8 @@ RUN go build -o main .
 WORKDIR /dist
 
 RUN cp /build/main .
-RUN cp /build/index.html .
+RUN cp /build/key.json .
+COPY /static/* static/
 EXPOSE 3000
 
 CMD ["/dist/main"]
