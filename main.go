@@ -99,6 +99,13 @@ func checkDecodedMessage(message JSONMessage) error {
 }
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		log.Println(r.Host)
+		if r.Host == "localhost:8080" {
+			return true
+		}
+		return false
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
