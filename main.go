@@ -112,12 +112,18 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	fcmTokenCookie, err := r.Cookie("fcm")
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	id := UIDcookie.Value
 	uid, _ := strconv.Atoi(id)
 	uuid := guuid.NewString()
 	lastMsgId := lastMsgCookie.Value
+	fcmToken := fcmTokenCookie.Value
 	log.Printf("new connect")
-	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
+	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid, fcm: fcmToken}
 	client.hub.register <- client
 
 	go client.writePump()

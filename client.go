@@ -27,6 +27,8 @@ type Client struct {
 	uuid string
 
 	control chan bool
+	// fcm token
+	fcm string
 }
 
 type Message struct {
