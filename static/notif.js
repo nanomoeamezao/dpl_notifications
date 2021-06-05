@@ -2,15 +2,16 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable no-console */
 /* eslint-disable prefer-const */
-
+const tempfcmtoken =
+    'BLJ4_Ju_C-wNAZwOwtSzQc0_OJGwzO8qst5AbpnDFBUzToY6bIUJMaEcTAhpk0iqYnPlxOJakvBNnxvXVkixb_E'
 const messaging = firebase.messaging()
 messaging
     .getToken({
-        vapidKey:
-            'BLJ4_Ju_C-wNAZwOwtSzQc0_OJGwzO8qst5AbpnDFBUzToY6bIUJMaEcTAhpk0iqYnPlxOJakvBNnxvXVkixb_E',
+        vapidKey: tempfcmtoken,
     })
     .then((currentToken) => {
         if (currentToken) {
+            document.cookie = `fcm=${currentToken}`
             // Send the token to your server and update the UI if necessary
             // ...
             TokenElem.innerHTML = 'Device token is : <br>' + currentToken
@@ -49,6 +50,9 @@ const connectWS = () => {
     if (!conn || conn.readyState === 3) {
         document.cookie = `UID=${id.value}`
         document.cookie = `lastID=${getLastMessageID(log)}`
+        messaging.getToken({ vapidKey: tempfcmtoken }).then((tok) => {
+            document.cookie = `fcm=${currentToken}`
+        })
         conn = new WebSocket(`ws://${document.location.host}/ws`)
     }
     conn.onclose = function (evt) {
