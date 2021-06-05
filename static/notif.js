@@ -28,6 +28,9 @@ messaging
         // ...
     })
 
+messaging.onMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Received  message ', payload);
+})
 // ws
 let conn
 let id
@@ -51,7 +54,7 @@ const connectWS = () => {
         document.cookie = `UID=${id.value}`
         document.cookie = `lastID=${getLastMessageID(log)}`
         messaging.getToken({ vapidKey: tempfcmtoken }).then((tok) => {
-            document.cookie = `fcm=${currentToken}`
+            document.cookie = `fcm=${tok}`
         })
         conn = new WebSocket(`ws://${document.location.host}/ws`)
     }

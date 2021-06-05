@@ -13,10 +13,12 @@ import (
 	"strconv"
 	"time"
 
+	firebase "firebase.google.com/go"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/gops/agent"
 	guuid "github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"google.golang.org/api/option"
 )
 
 const (
@@ -157,7 +159,16 @@ func main() {
 		panic("redis error")
 	}
 
-	hub := newHub(rdb)
+	opt := option.WithCredentialsFile("key.json")
+	app, err := firebase.NewApp(context.Background(), nil, opt)
+	if err != nil {
+		log.Fatalf("error initializing app: %v\n", err)
+	}
+	messagingClient, err := app.Messaging(ctx)
+	if err != nil {
+		log.Fatalf("error initializing app: %v\n", err)
+	}
+	hub := newHub(rdb, messagingClient)
 	go hub.run(ctx)
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
@@ -171,7 +182,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	err := http.ListenAndServe(fmt.Sprint(":", port), nil)
+	err = http.ListenAndServe(fmt.Sprint(":", port), nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

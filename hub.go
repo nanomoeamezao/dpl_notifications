@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strconv"
 	"time"
 
+	"firebase.google.com/go/messaging"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -23,15 +23,18 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+	//fcm
+	fcm *messaging.Client
 }
 
-func newHub(redis *redis.Client) *Hub {
+func newHub(redis *redis.Client, fcm *messaging.Client) *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[string]*Client),
 		redis:      redis,
+		fcm:        fcm,
 	}
 }
 
@@ -53,7 +56,7 @@ func (h *Hub) run(ctx context.Context) {
 		select {
 		case client := <-h.register:
 			h.clients[client.uuid] = client
-			go test_spam_direct(client)
+			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
 			go h.handleRedisForClient(client, ctx)
 
@@ -89,10 +92,12 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 		Streams: []string{strconv.Itoa(client.id), startID},
 		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
 	}).Result()
-	if err != redis.Nil && err != nil {
+	if err != redis.Nil && err == nil {
 		for _, stream := range val[0].Messages {
 			client.lastMsgId = stream.ID
-			client.send <- &Message{Id: stream.ID, Message: stream.Values["msg"].(string)}
+			message := &Message{Id: stream.ID, Message: stream.Values["msg"].(string)}
+			client.send <- message
+			h.sendToFcm(client, message)
 		}
 	} else if err == redis.Nil {
 		log.Print("no new msgs for ", client.id)
@@ -101,13 +106,20 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 	}
 }
 
-func updateClientsLastMessageRedis(client *Client, redis *redis.Client, ctx context.Context) (string, error) {
-	lastMessageId := client.lastMsgId
-	cmd, err := redis.Set(ctx, fmt.Sprintf("%dlast", client.id), lastMessageId, 0).Result()
-	return cmd, err
-}
-
-func readClientsLastMessageRedis(client *Client, redis *redis.Client, ctx context.Context) (string, error) {
-	res, err := redis.Get(ctx, fmt.Sprint(client.id, "last")).Result()
-	return res, err
+func (h *Hub) sendToFcm(client *Client, message *Message) {
+	fcmMessage := &messaging.Message{
+		Data: map[string]string{
+			"message": message.Message,
+		},
+		Notification: &messaging.Notification{
+			Title: "ConfLab",
+			Body:  message.Message,
+		},
+		Token: client.fcm,
+	}
+	resp, err := h.fcm.Send(ctx, fcmMessage)
+	if err != nil {
+		log.Println("fcm send error: ", err)
+	}
+	log.Println("fcm response: ", resp)
 }
