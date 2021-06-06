@@ -101,7 +101,7 @@ func checkDecodedMessage(message JSONMessage) error {
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		log.Println(r.Host)
-		if r.Host == "localhost:8080" {
+		if r.Host == "localhost:8080" || r.Host == "localhost" {
 			return true
 		}
 		return false
@@ -187,7 +187,7 @@ func main() {
 	})
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "80"
 	}
 	err = http.ListenAndServe(fmt.Sprint(":", port), nil)
 	if err != nil {

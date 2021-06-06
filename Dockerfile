@@ -20,6 +20,6 @@ WORKDIR /dist
 RUN cp /build/main .
 RUN cp /build/key.json .
 COPY /static/* static/
-EXPOSE 3000
+EXPOSE 80
 
 CMD ["/dist/main"]
