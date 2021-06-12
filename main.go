@@ -189,8 +189,15 @@ func main() {
 	if port == "" {
 		port = "80"
 	}
+
 	err = http.ListenAndServe(fmt.Sprint(":", port), nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
 }
