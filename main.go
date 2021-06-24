@@ -14,6 +14,7 @@ import (
 	"time"
 
 	firebase "firebase.google.com/go"
+	"firebase.google.com/go/messaging"
 	"github.com/go-redis/redis/v8"
 	guuid "github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -142,49 +143,16 @@ var ctx = context.Background()
 
 func main() {
 	fmt.Printf("listening")
-	redisUrl := os.Getenv("REDIS_URL")
-	fmt.Printf(redisUrl)
-	var redisOptions = &redis.Options{}
-	if redisUrl == "" {
-		redisUrl = "redis:6379"
-		redisOptions = &redis.Options{
-			Addr: redisUrl,
-			DB:   0,
-		}
-	} else {
-		redisOptions, _ = redis.ParseURL(redisUrl)
-	}
-	rdb := redis.NewClient(redisOptions)
-	if _, err := rdb.Ping(ctx).Result(); err != nil {
-		log.Printf("error connecting to redis: %s", err)
-		panic("redis error")
-	}
-
-	opt := option.WithCredentialsFile("key.json")
-	app, err := firebase.NewApp(context.Background(), nil, opt)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
-	messagingClient, err := app.Messaging(ctx)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
+	rdb := initRedis()
+	messagingClient := initFirebase()
 	hub := newHub(rdb, messagingClient)
 	go hub.run(ctx)
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(hub, w, r)
-	})
-	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
-		handleAPIRequest(w, r, rdb)
-	})
+	handleRoutes(hub, rdb)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "80"
 	}
-
-	err = http.ListenAndServe(fmt.Sprint(":", port), nil)
+	err := http.ListenAndServe(fmt.Sprint(":", port), nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
@@ -196,6 +164,49 @@ func logRequest(handler http.Handler) http.Handler {
 	})
 }
 
-func initFirebase() {}
+func initFirebase() *messaging.Client {
+	opt := option.WithCredentialsFile("key.json")
+	app, err := firebase.NewApp(context.Background(), nil, opt)
+	if err != nil {
+		log.Fatalf("error initializing app: %v\n", err)
+	}
+	messagingClient, err := app.Messaging(ctx)
+	if err != nil {
+		log.Fatalf("error initializing app: %v\n", err)
+	}
+	return messagingClient
+}
 
-func initRedis() {}
+func initRedis() *redis.Client {
+	redisUrl := os.Getenv("REDIS_URL")
+	fmt.Println(redisUrl)
+	var redisOptions = &redis.Options{}
+	if redisUrl == "" {
+		redisOptions = localRedisOpts
+	} else {
+		redisOptions, _ = redis.ParseURL(redisUrl)
+	}
+	rdb := redis.NewClient(redisOptions)
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		log.Printf("error connecting to redis: %s", err)
+		panic("redis error")
+	}
+	return rdb
+}
+
+func handleRoutes(hub *Hub, rdb *redis.Client) {
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fs)
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		serveWs(hub, w, r)
+	})
+	http.HandleFunc("/send", func(w http.ResponseWriter, r *http.Request) {
+		handleAPIRequest(w, r, rdb)
+	})
+
+}
+
+var localRedisOpts = &redis.Options{
+	Addr: "redis:6379",
+	DB:   0,
+}
