@@ -136,7 +136,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client.hub.register <- client
 
 	go client.writePump()
-	go client.maintain()
+	go client.readPump()
 }
 
 var ctx = context.Background()
@@ -207,6 +207,6 @@ func handleRoutes(hub *Hub, rdb *redis.Client) {
 }
 
 var localRedisOpts = &redis.Options{
-	Addr: "redis:6379",
+	Addr: "localhost:6379",
 	DB:   0,
 }
