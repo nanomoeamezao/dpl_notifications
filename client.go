@@ -33,7 +33,9 @@ type Client struct {
 }
 
 type Message struct {
-	Id      string
+	//message number
+	Id string
+	//message text
 	Message string
 }
 
