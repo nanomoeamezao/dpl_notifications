@@ -14,6 +14,7 @@ var localRedisOpts = &redis.Options{
 	DB:   0,
 }
 
+// TODO: redis as object
 func sendToStream(rdb *redis.Client, msg JSONMessage) error {
 	args := makeStreamArgs(msg.Params.Id, msg.Params.Msg)
 	redisResult := rdb.XAdd(ctx, args).Err()
@@ -84,18 +85,32 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 	} else {
 		log.Print("error for ", client.id, " : ", err)
 	}
+	return
 }
 func (h *Hub) subForClient(client *Client) {
+	ticker := time.NewTicker(time.Second)
 	log.Println("subbing: ", client.id)
 	channel := fmt.Sprint(client.id)
 	sub := h.redis.Subscribe(ctx, channel)
 	ch := sub.Channel()
-
+	defer func() {
+		ticker.Stop()
+		err := sub.Unsubscribe(ctx)
+		if err != nil {
+			log.Print("unsub error")
+		}
+	}()
+	// TODO: message id for pubsub
 	for {
 		select {
-		case message := <-ch:
-			client.send <- &Message{Id: "-1", Message: message.Payload}
-
+		case <-ticker.C:
+			log.Print("sub ticker")
+			message := <-ch
+			if message != nil {
+				client.send <- &Message{Id: "-1", Message: message.Payload}
+			}
+		case <-client.control:
+			return
 		}
 	}
 

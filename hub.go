@@ -52,13 +52,15 @@ func (h *Hub) run() {
 			h.clients[client.uuid] = client
 			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
-			// go h.handleRedisForClient(client)
+			//sync or goroutine
+			h.readRedisMessages(client, client.lastMsgId)
 			go h.subForClient(client)
 
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.uuid]; ok {
 				log.Printf("unregistering %d", client.id)
 				delete(h.clients, client.uuid)
+				client.control <- true
 				client.control <- true
 				close(client.send)
 				close(client.control)

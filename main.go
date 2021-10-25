@@ -68,11 +68,16 @@ func handleAPIRequest(w http.ResponseWriter, r *http.Request, rdb *redis.Client)
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed", "error":{"code":-32602, "message":"message contained incorrect data"}, id:"%d"}`, msg.Id)))
 		return
 	}
-	// redisResult := sendToStream(rdb, msg)
-	// log.Printf("%s", redisResult)
-	redisErr := sendToPUBSUB(rdb, msg)
+	redisErr := sendToStream(rdb, msg)
 	if redisErr != nil {
 		log.Println(redisErr)
+		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result": "redis error : %s", id:"%d"}`, redisErr, msg.Id)))
+	}
+	// log.Printf("%s", redisResult)
+	redisErr = sendToPUBSUB(rdb, msg)
+	if redisErr != nil {
+		log.Println(redisErr)
+		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"redis error : %s", id:"%d"}`, redisErr, msg.Id)))
 	}
 	w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":success, id:"%d"}`, msg.Id)))
 }
@@ -98,7 +103,6 @@ func checkDecodedMessage(message JSONMessage) error {
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		log.Println(r.Host)
 		if r.Host == "localhost:8080" || r.Host == "localhost" {
 			return true
 		}
@@ -109,6 +113,9 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+
+	// TODO: check cookie into function
+
 	UIDcookie, err := r.Cookie("UID")
 	if err != nil {
 		log.Println(err)
@@ -119,18 +126,13 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	fcmTokenCookie, err := r.Cookie("fcm")
-	if err != nil {
-		log.Println(err)
-		return
-	}
+
 	id := UIDcookie.Value
 	uid, _ := strconv.Atoi(id)
 	uuid := guuid.NewString()
 	lastMsgId := lastMsgCookie.Value
-	fcmToken := fcmTokenCookie.Value
 	log.Printf("new connect")
-	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid, fcm: fcmToken}
+	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
 	client.hub.register <- client
 
 	go client.writePump()
@@ -154,6 +156,7 @@ func main() {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
+
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
