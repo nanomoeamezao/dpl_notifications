@@ -28,8 +28,6 @@ type Client struct {
 	uuid string
 
 	control chan bool
-	// fcm token
-	fcm string
 }
 
 type Message struct {
@@ -56,16 +54,16 @@ func (c *Client) writePump() {
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
+				log.Print("send channel closed")
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				c.hub.unregister <- c
-				c.conn.Close()
 				return
 			}
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				log.Print("WS writer error: ", err.Error())
 				c.hub.unregister <- c
-				c.conn.Close()
 				return
 			}
 
@@ -78,21 +76,20 @@ func (c *Client) writePump() {
 			}
 			encodedMessages, err := serializeMessages(messageArray)
 			if err != nil {
-				log.Print(err.Error())
+				log.Print("serialisation error: ", err.Error())
+				return
 			} else {
 				w.Write([]byte(encodedMessages))
 			}
 
 			if err := w.Close(); err != nil {
 				c.hub.unregister <- c
-				c.conn.Close()
 				return
 			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				c.hub.unregister <- c
-				c.conn.Close()
 				return
 			}
 		}
@@ -122,5 +119,7 @@ func (c *Client) readPump() {
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		log.Println("recieved message from client ", string(message))
+
 	}
+
 }

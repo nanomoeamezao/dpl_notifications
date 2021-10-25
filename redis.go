@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
@@ -14,10 +15,11 @@ var localRedisOpts = &redis.Options{
 	DB:   0,
 }
 
-func sendToStream(rdb *redis.Client, msg JSONMessage) error {
+// TODO: redis as object
+func sendToStream(rdb *redis.Client, msg ApiJSONMessage) (string, error) {
 	args := makeStreamArgs(msg.Params.Id, msg.Params.Msg)
-	redisResult := rdb.XAdd(ctx, args).Err()
-	return redisResult
+	redisId, redisResult := rdb.XAdd(ctx, args).Result()
+	return redisId, redisResult
 }
 
 func makeStreamArgs(id int64, msg string) *redis.XAddArgs {
@@ -28,10 +30,15 @@ func makeStreamArgs(id int64, msg string) *redis.XAddArgs {
 
 }
 
-func sendToPUBSUB(rdb *redis.Client, msg JSONMessage) error {
+func sendToPUBSUB(rdb *redis.Client, msg ApiJSONMessage, msgId string) error {
 	id := strconv.FormatInt(msg.Params.Id, 10)
-	message := msg.Params.Msg
-	err := rdb.Publish(ctx, id, message).Err()
+	psMessage := Message{Id: msgId, Message: msg.Params.Msg}
+	psJSON, err := json.Marshal(psMessage)
+	if err != nil {
+		log.Print("marshal error: ", err)
+		return err
+	}
+	err = rdb.Publish(ctx, id, psJSON).Err()
 	return err
 }
 
@@ -62,6 +69,7 @@ func (h *Hub) handleRedisForClient(client *Client) {
 		case <-ticker.C:
 			h.readRedisMessages(client, client.lastMsgId)
 		case <-client.control:
+			log.Print("control exit from handleredis")
 			return
 		}
 	}
@@ -84,19 +92,43 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 	} else {
 		log.Print("error for ", client.id, " : ", err)
 	}
+	return
 }
 func (h *Hub) subForClient(client *Client) {
+	// если тикер слишком быстрый - не улавливается закрытие контрольного канала
+	ticker := time.NewTicker(time.Second * 4)
 	log.Println("subbing: ", client.id)
 	channel := fmt.Sprint(client.id)
 	sub := h.redis.Subscribe(ctx, channel)
 	ch := sub.Channel()
-
+	defer func() {
+		ticker.Stop()
+		err := sub.Unsubscribe(ctx)
+		if err != nil {
+			log.Print("unsub error")
+		}
+	}()
 	for {
 		select {
-		case message := <-ch:
-			client.send <- &Message{Id: "-1", Message: message.Payload}
+		case _, ok := <-client.control:
+			if !ok {
+				log.Print("control exit from pubsub")
+				return
+
+			}
+		case <-ticker.C:
+			message := <-ch
+			if message != nil {
+				// TODO: unmarshal as function
+				var decodedMessage Message
+				err := json.Unmarshal([]byte(message.Payload), &decodedMessage)
+				if err != nil {
+					log.Print("unmarshal error: ", err)
+					return
+				}
+				client.send <- &decodedMessage
+			}
 
 		}
 	}
-
 }
