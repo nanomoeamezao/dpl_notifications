@@ -96,13 +96,11 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 }
 func (h *Hub) subForClient(client *Client) {
 	// если тикер слишком быстрый - не улавливается закрытие контрольного канала
-	ticker := time.NewTicker(time.Second * 4)
 	log.Println("subbing: ", client.id)
 	channel := fmt.Sprint(client.id)
 	sub := h.redis.Subscribe(ctx, channel)
 	ch := sub.Channel()
 	defer func() {
-		ticker.Stop()
 		err := sub.Unsubscribe(ctx)
 		if err != nil {
 			log.Print("unsub error")
@@ -110,21 +108,16 @@ func (h *Hub) subForClient(client *Client) {
 	}()
 	for {
 		select {
-		case _, ok := <-client.control:
-			if !ok {
-				log.Print("control exit from pubsub")
-				return
-
-			}
-		case <-ticker.C:
-			message := <-ch
+		case <-client.control:
+			log.Print("control exit from pubsub")
+			return
+		case message := <-ch:
 			if message != nil {
 				// TODO: unmarshal as function
 				var decodedMessage Message
 				err := json.Unmarshal([]byte(message.Payload), &decodedMessage)
 				if err != nil {
 					log.Print("unmarshal error: ", err)
-					return
 				}
 				client.send <- &decodedMessage
 			}
