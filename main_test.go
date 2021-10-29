@@ -47,3 +47,14 @@ func TestSerializeMessages_positive(t *testing.T) {
 		t.Error("encoded != want: multiple ", encoded_multiple, " != ", want_multiple)
 	}
 }
+
+func TestJsonPUBSUB_positive(t *testing.T) {
+	marshalled := `{"Id":"11","Message":"test"}`
+	result, err := unmarshalPUBSUB(marshalled)
+	if err != nil {
+		t.Error("unexpected error: ", err)
+	}
+	if result.Id != "11" || result.Message != "test" {
+		t.Error("incorrect results: ", result.Id, result.Message)
+	}
+}

@@ -59,27 +59,11 @@ func initRedis() *redis.Client {
 	return rdb
 }
 
-func (h *Hub) handleRedisForClient(client *Client) {
-	ticker := time.NewTicker(time.Second * 5)
-	defer func() {
-		ticker.Stop()
-	}()
-	for {
-		select {
-		case <-ticker.C:
-			h.readRedisMessages(client, client.lastMsgId)
-		case <-client.control:
-			log.Print("control exit from handleredis")
-			return
-		}
-	}
-}
-
 func (h *Hub) readRedisMessages(client *Client, startID string) {
 	log.Printf("reading redis, last msg: %s", startID)
 	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
 		Streams: []string{strconv.Itoa(client.id), startID},
-		Block:   5 * time.Millisecond, //FUCKING WHY?????????????????
+		Block:   5 * time.Millisecond, //mandatory block argument?
 	}).Result()
 	if err != redis.Nil && err == nil {
 		for _, stream := range val[0].Messages {
@@ -95,7 +79,6 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 	return
 }
 func (h *Hub) subForClient(client *Client) {
-	// если тикер слишком быстрый - не улавливается закрытие контрольного канала
 	log.Println("subbing: ", client.id)
 	channel := fmt.Sprint(client.id)
 	sub := h.redis.Subscribe(ctx, channel)
@@ -109,19 +92,27 @@ func (h *Hub) subForClient(client *Client) {
 	for {
 		select {
 		case <-client.control:
-			log.Print("control exit from pubsub")
 			return
 		case message := <-ch:
 			if message != nil {
-				// TODO: unmarshal as function
-				var decodedMessage Message
-				err := json.Unmarshal([]byte(message.Payload), &decodedMessage)
+				decodedMessage, err := unmarshalPUBSUB(message.Payload)
 				if err != nil {
-					log.Print("unmarshal error: ", err)
+					log.Print("bad message: ", err)
+				} else {
+					client.send <- decodedMessage
 				}
-				client.send <- &decodedMessage
 			}
 
 		}
 	}
+}
+
+func unmarshalPUBSUB(encMessage string) (*Message, error) {
+	var decodedMessage Message
+	err := json.Unmarshal([]byte(encMessage), &decodedMessage)
+	if err != nil {
+		log.Print("unmarshal error: ", err)
+		return nil, err
+	}
+	return &decodedMessage, nil
 }
