@@ -58,3 +58,20 @@ func TestJsonPUBSUB_positive(t *testing.T) {
 		t.Error("incorrect results: ", result.Id, result.Message)
 	}
 }
+
+func TestJsonPUBSUB_pairwise(t *testing.T) {
+	marshalledArray := []string{`{"Id":"11","Message":"test"}`, `{"Id":"11"}`, `{"Message":"test"}`, `{}`, `{"Id":"11", "Message":11}`, `{"Id":11, "Message":"test"}`}
+	// both good, 1 missing x 2 , 2 missing , 1 not string x 2
+	for i, v := range marshalledArray {
+		res, err := unmarshalPUBSUB(v)
+		if err != nil && i == 0 {
+			t.Error("unmarshal failed: ", err)
+		} else if err != nil {
+
+		} else if res.Id == "" || res.Message == "" {
+			t.Error("missing args: ", res)
+		}
+
+	}
+
+}

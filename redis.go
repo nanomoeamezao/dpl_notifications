@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
@@ -113,6 +114,10 @@ func unmarshalPUBSUB(encMessage string) (*Message, error) {
 	if err != nil {
 		log.Print("unmarshal error: ", err)
 		return nil, err
+	} else if decodedMessage.Id != "" && decodedMessage.Message != "" {
+		return &decodedMessage, nil
+	} else {
+		log.Print("unmarshal error: empty fields: ", decodedMessage)
+		return nil, errors.New("empty fields encountered: ")
 	}
-	return &decodedMessage, nil
 }
