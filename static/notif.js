@@ -14,7 +14,7 @@ messaging
             document.cookie = `fcm=${currentToken}`
             // Send the token to your server and update the UI if necessary
             // ...
-            TokenElem.innerHTML = 'Device token is : <br>' + currentToken
+            TokenElem.innerHTML = `Device token is : <br>${currentToken}`
         } else {
             // Show permission request UI
             console.log(
@@ -29,7 +29,7 @@ messaging
     })
 
 messaging.onMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received  message ', payload);
+    console.log('[firebase-messaging-sw.js] Received  message ', payload)
 })
 // ws
 let conn
@@ -72,6 +72,9 @@ const connectWS = () => {
             item.innerText = decodedMessages[i].Message
             appendLog(item)
         }
+    }
+    conn.onerror = function (event) {
+        console.error('WebSocket error observed:', event)
     }
 }
 function appendLog(item) {

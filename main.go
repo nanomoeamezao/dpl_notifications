@@ -87,7 +87,10 @@ func decodeApiJSONMessage(encodedMessage io.ReadCloser) (ApiJSONMessage, error) 
 	var message ApiJSONMessage
 	encodedNonstream, err := ioutil.ReadAll(encodedMessage)
 	if err == nil {
-		json.Unmarshal(encodedNonstream, &message)
+		err = json.Unmarshal(encodedNonstream, &message)
+		if err != nil {
+			return *new(ApiJSONMessage), err
+		}
 	} else {
 		log.Println(err)
 	}
@@ -109,35 +112,49 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		}
 		return false
 	}
+
+	uid, lastMsgId, err := getUserdataFromCookie(r)
+	if err != nil {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-
-	// TODO: check cookie into function
-
-	UIDcookie, err := r.Cookie("UID")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	lastMsgCookie, err := r.Cookie("lastID")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	id := UIDcookie.Value
-	uid, _ := strconv.Atoi(id)
-	uuid := guuid.NewString()
-	lastMsgId := lastMsgCookie.Value
 	log.Printf("new connect")
+	uuid := guuid.NewString()
 	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
 	client.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
+}
+
+func getUserdataFromCookie(r *http.Request) (int, string, error) {
+	UIDcookie, err := r.Cookie("UID")
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+	lastMsgCookie, err := r.Cookie("lastID")
+	if err != nil {
+		log.Println(err)
+		return 0, "", err
+	}
+
+	id := UIDcookie.Value
+	if id == "" {
+		return 0, "", errors.New("empty id")
+	}
+	log.Print(id)
+	uid, _ := strconv.Atoi(id)
+	lastMsgId := lastMsgCookie.Value
+	if lastMsgId == "" {
+		return 0, "", errors.New("empty lastMsgId")
+	}
+	return uid, lastMsgId, nil
 }
 
 var ctx = context.Background()
