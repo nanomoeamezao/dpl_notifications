@@ -16,10 +16,32 @@ var localRedisOpts = &redis.Options{
 	DB:   0,
 }
 
-// TODO: redis as object
-func sendToStream(rdb *redis.Client, msg ApiJSONMessage) (string, error) {
+type RDB struct {
+	client *redis.Client
+}
+
+func initRedis() *RDB {
+	rdb := &RDB{}
+	redisUrl := os.Getenv("REDIS_URL")
+	fmt.Println(redisUrl)
+	var redisOptions = &redis.Options{}
+	if redisUrl == "" {
+		redisOptions = localRedisOpts
+	} else {
+		redisOptions, _ = redis.ParseURL(redisUrl)
+	}
+	client := redis.NewClient(redisOptions)
+	if _, err := client.Ping(ctx).Result(); err != nil {
+		log.Printf("error connecting to redis: %s", err)
+		panic("redis error")
+	}
+	rdb.client = client
+	return rdb
+}
+
+func (rdb *RDB) sendToStream(msg ApiJSONMessage) (string, error) {
 	args := makeStreamArgs(msg.Params.Id, msg.Params.Msg)
-	redisId, redisResult := rdb.XAdd(ctx, args).Result()
+	redisId, redisResult := rdb.client.XAdd(ctx, args).Result()
 	return redisId, redisResult
 }
 
@@ -31,7 +53,7 @@ func makeStreamArgs(id int64, msg string) *redis.XAddArgs {
 
 }
 
-func sendToPUBSUB(rdb *redis.Client, msg ApiJSONMessage, msgId string) error {
+func (rdb *RDB) sendToPUBSUB(msg ApiJSONMessage, msgId string) error {
 	id := strconv.FormatInt(msg.Params.Id, 10)
 	psMessage := Message{Id: msgId, Message: msg.Params.Msg}
 	psJSON, err := json.Marshal(psMessage)
@@ -39,30 +61,13 @@ func sendToPUBSUB(rdb *redis.Client, msg ApiJSONMessage, msgId string) error {
 		log.Print("marshal error: ", err)
 		return err
 	}
-	err = rdb.Publish(ctx, id, psJSON).Err()
+	err = rdb.client.Publish(ctx, id, psJSON).Err()
 	return err
 }
 
-func initRedis() *redis.Client {
-	redisUrl := os.Getenv("REDIS_URL")
-	fmt.Println(redisUrl)
-	var redisOptions = &redis.Options{}
-	if redisUrl == "" {
-		redisOptions = localRedisOpts
-	} else {
-		redisOptions, _ = redis.ParseURL(redisUrl)
-	}
-	rdb := redis.NewClient(redisOptions)
-	if _, err := rdb.Ping(ctx).Result(); err != nil {
-		log.Printf("error connecting to redis: %s", err)
-		panic("redis error")
-	}
-	return rdb
-}
-
-func (h *Hub) readRedisMessages(client *Client, startID string) {
+func (rdb *RDB) readRedisMessages(client *Client, startID string) {
 	log.Printf("reading redis, last msg: %s", startID)
-	val, err := h.redis.XRead(ctx, &redis.XReadArgs{
+	val, err := rdb.client.XRead(ctx, &redis.XReadArgs{
 		Streams: []string{strconv.Itoa(client.id), startID},
 		Block:   5 * time.Millisecond, //mandatory block argument?
 	}).Result()
@@ -79,10 +84,10 @@ func (h *Hub) readRedisMessages(client *Client, startID string) {
 	}
 	return
 }
-func (h *Hub) subForClient(client *Client) {
+func (rdb *RDB) subForClient(client *Client) {
 	log.Println("subbing: ", client.id)
 	channel := fmt.Sprint(client.id)
-	sub := h.redis.Subscribe(ctx, channel)
+	sub := rdb.client.Subscribe(ctx, channel)
 	ch := sub.Channel()
 	defer func() {
 		err := sub.Unsubscribe(ctx)

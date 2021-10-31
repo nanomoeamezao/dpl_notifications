@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	guuid "github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -57,7 +56,7 @@ type ApiJSONMessage struct {
 	Id     int64
 }
 
-func handleAPIRequest(w http.ResponseWriter, r *http.Request, rdb *redis.Client) {
+func handleAPIRequest(w http.ResponseWriter, r *http.Request, rdb *RDB) {
 	encodedMessage := r.Body
 	msg, err := decodeApiJSONMessage(encodedMessage)
 	if err != nil {
@@ -65,18 +64,18 @@ func handleAPIRequest(w http.ResponseWriter, r *http.Request, rdb *redis.Client)
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed", "error":{"code":-32700, "message":"message not decoded"}, id:"%d"}`, msg.Id)))
 		return
 	}
-	errMessage := checkDecodedMessage(msg)
-	if errMessage != nil {
-		log.Println("decoded message does not contain needed info", errMessage)
+	err = checkDecodedMessage(msg)
+	if err != nil {
+		log.Println("decoded message does not contain needed info", err)
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"failed", "error":{"code":-32602, "message":"message contained incorrect data"}, id:"%d"}`, msg.Id)))
 		return
 	}
-	msgId, redisErr := sendToStream(rdb, msg)
+	msgId, redisErr := rdb.sendToStream(msg)
 	if redisErr != nil {
 		log.Println(redisErr)
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result": "redis error : %s", id:"%d"}`, redisErr, msg.Id)))
 	}
-	redisErr = sendToPUBSUB(rdb, msg, msgId)
+	redisErr = rdb.sendToPUBSUB(msg, msgId)
 	if redisErr != nil {
 		log.Println(redisErr)
 		w.Write([]byte(fmt.Sprintf(`{"jsonrpc": "2.0", "result":"redis error : %s", id:"%d"}`, redisErr, msg.Id)))
@@ -166,7 +165,7 @@ func logRequest(handler http.Handler) http.Handler {
 	})
 }
 
-func handleRoutes(hub *Hub, rdb *redis.Client) {
+func handleRoutes(hub *Hub, rdb *RDB) {
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

@@ -20,15 +20,18 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	//redis object
+	rdb *RDB
 }
 
-func newHub(redis *redis.Client) *Hub {
+func newHub(rdb *RDB) *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[string]*Client),
-		redis:      redis,
+		rdb:        rdb,
 	}
 }
 
@@ -53,8 +56,8 @@ func (h *Hub) run() {
 			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
 			//sync or goroutine
-			h.readRedisMessages(client, client.lastMsgId)
-			go h.subForClient(client)
+			h.rdb.readRedisMessages(client, client.lastMsgId)
+			go h.rdb.subForClient(client)
 
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.uuid]; ok {
