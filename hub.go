@@ -3,15 +3,12 @@ package main
 import (
 	"log"
 	"time"
-
-	"github.com/go-redis/redis/v8"
 )
 
 type Hub struct {
 	// Registered clients.
-	clients map[string]*Client
+	clients map[int]map[string]*Client
 
-	redis *redis.Client
 	// Inbound messages from the clients.
 	broadcast chan []byte
 
@@ -30,7 +27,7 @@ func newHub(rdb *RDB) *Hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[string]*Client),
+		clients:    make(map[int]map[string]*Client),
 		rdb:        rdb,
 	}
 }
@@ -52,17 +49,24 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client.uuid] = client
+			if len(h.clients[client.id]) == 0 {
+				uuidMap := map[string]*Client{}
+				h.clients[client.id] = uuidMap
+			}
+			h.clients[client.id][client.uuid] = client
 			// go test_spam_direct(client)
 			log.Printf("registering %d", client.id)
-			//sync or goroutine
 			h.rdb.readRedisMessages(client, client.lastMsgId)
 			go h.rdb.subForClient(client)
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client.uuid]; ok {
+			if _, ok := h.clients[client.id][client.uuid]; ok {
 				log.Printf("unregistering %d", client.id)
-				delete(h.clients, client.uuid)
+				delete(h.clients[client.id], client.uuid)
+				if len(h.clients[client.id]) == 0 {
+					delete(h.clients, client.id)
+					log.Print("map empty")
+				}
 				close(client.send)
 				close(client.control)
 			}
