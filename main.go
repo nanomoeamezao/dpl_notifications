@@ -125,7 +125,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("new connect")
 	uuid := guuid.NewString()
-	client := &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: uid, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
+	client := newClient(hub, uid, lastMsgId, conn, uuid)
 	client.hub.register <- client
 
 	go client.writePump()
@@ -183,8 +183,7 @@ func logRequest(handler http.Handler) http.Handler {
 }
 
 func handleRoutes(hub *Hub, rdb *RDB) {
-	fs := http.FileServer(http.Dir("./static"))
-	http.Handle("/", fs)
+	serveDebugpage()
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
@@ -192,4 +191,9 @@ func handleRoutes(hub *Hub, rdb *RDB) {
 		handleAPIRequest(w, r, rdb)
 	})
 
+}
+
+func serveDebugpage() {
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/", fs)
 }

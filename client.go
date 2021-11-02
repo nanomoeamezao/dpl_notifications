@@ -30,6 +30,10 @@ type Client struct {
 	control chan bool
 }
 
+func newClient(hub *Hub, id int, lastMsgId string, conn *websocket.Conn, uuid string) *Client {
+	return &Client{hub: hub, conn: conn, send: make(chan *Message, 256), id: id, lastMsgId: lastMsgId, control: make(chan bool), uuid: uuid}
+}
+
 type Message struct {
 	//message number
 	Id string
