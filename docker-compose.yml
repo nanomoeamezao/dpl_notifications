@@ -5,5 +5,7 @@ services:
         - "80:80"
       links:
         - redis
+      environment:
+        - REDIS_URL=redis://redis:6379
     redis:
       image: redis

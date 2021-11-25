@@ -18,7 +18,6 @@ RUN go build -o main .
 WORKDIR /dist
 
 RUN cp /build/main .
-RUN cp /build/key.json .
 COPY /static/* static/
 EXPOSE 80
 
